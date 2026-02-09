@@ -32,6 +32,32 @@ class DiscordChannel(BaseChannel):
         self._heartbeat_task: asyncio.Task | None = None
         self._typing_tasks: dict[str, asyncio.Task] = {}
         self._http: httpx.AsyncClient | None = None
+        self._bot_user_id: str | None = None
+    
+    def _is_bot_mentioned(self, content: str, mentions: list[dict[str, Any]]) -> bool:
+        if not self._bot_user_id:
+            return False
+
+        # Reliable method: mentions array
+        for m in mentions:
+            if str(m.get("id")) == self._bot_user_id:
+                return True
+
+        # Fallback: raw content
+        return (
+            f"<@{self._bot_user_id}>" in content
+            or f"<@!{self._bot_user_id}>" in content
+        )
+    
+    def _strip_bot_mention(self, content: str) -> str:
+        if not self._bot_user_id:
+            return content
+        return (
+            content
+            .replace(f"<@{self._bot_user_id}>", "")
+            .replace(f"<@!{self._bot_user_id}>", "")
+            .strip()
+        )
 
     async def start(self) -> None:
         """Start the Discord gateway connection."""
@@ -133,7 +159,8 @@ class DiscordChannel(BaseChannel):
                 await self._start_heartbeat(interval_ms / 1000)
                 await self._identify()
             elif op == 0 and event_type == "READY":
-                logger.info("Discord gateway READY")
+                self._bot_user_id = payload["user"]["id"]
+                logger.info(f"Discord READY as bot id {self._bot_user_id}")
             elif op == 0 and event_type == "MESSAGE_CREATE":
                 await self._handle_message_create(payload)
             elif op == 7:
@@ -190,12 +217,18 @@ class DiscordChannel(BaseChannel):
         sender_id = str(author.get("id", ""))
         channel_id = str(payload.get("channel_id", ""))
         content = payload.get("content") or ""
+        mentions = payload.get("mentions") or []
 
         if not sender_id or not channel_id:
             return
 
         if not self.is_allowed(sender_id):
             return
+        
+        if self.config.mention_only:
+            content = self._strip_bot_mention(content)
+            if not self._is_bot_mentioned(content, mentions):
+                return
 
         content_parts = [content] if content else []
         media_paths: list[str] = []

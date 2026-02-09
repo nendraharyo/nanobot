@@ -352,6 +352,8 @@ def gateway(
             default_model=config.agents.defaults.model
         )
     
+    session_manager = SessionManager(config.workspace_path)
+
     # Create cron service first (callback set after agent creation)
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
     cron = CronService(cron_store_path)
