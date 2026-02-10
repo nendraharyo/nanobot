@@ -350,9 +350,9 @@ def gateway(
     model = config.agents.defaults.model
     provider_name = None
     provider_type = None
-    if ":" in model:
-        provider_name = model.split(":")[0]
-        model = model.split(":")[1]  # Strip provider prefix
+    if "::" in model:
+        provider_name = model.split("::")[0]
+        model = model.split("::")[1] # Strip provider prefix
         api_key = config.llm_providers[provider_name].api_key or api_key
         api_base = config.llm_providers[provider_name].api_base or api_base
         provider_type = config.llm_providers[provider_name].type or None
@@ -489,9 +489,9 @@ def agent(
     model = config.agents.defaults.model
     provider_name = None
     provider_type = None
-    if ":" in model:
-        provider_name = model.split(":")[0]
-        model = model.split(":")[1]  # Strip provider prefix
+    if "::" in model:
+        provider_name = model.split("::")[0]
+        model = model.split("::")[1]  # Strip provider prefix
         api_key = config.llm_providers[provider_name].api_key or api_key
         api_base = config.llm_providers[provider_name].api_base or api_base
         provider_type = config.llm_providers[provider_name].type or None
