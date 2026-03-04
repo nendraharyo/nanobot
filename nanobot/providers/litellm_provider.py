@@ -15,7 +15,7 @@ class LiteLLMProvider(LLMProvider):
     """
     LLM provider using LiteLLM for multi-provider support.
     
-    Supports OpenRouter, Anthropic, OpenAI, Gemini, and many other providers through
+    Supports OpenRouter, Anthropic, OpenAI, Gemini, MiniMax, and many other providers through
     a unified interface.  Provider-specific logic is driven by the registry
     (see providers/registry.py) — no if-elif chains needed here.
     """
@@ -121,6 +121,10 @@ class LiteLLMProvider(LLMProvider):
             LLMResponse with content and/or tool calls.
         """
         model = self._resolve_model(model or self.default_model)
+        
+        # Clamp max_tokens to at least 1 — negative or zero values cause
+        # LiteLLM to reject the request with "max_tokens must be at least 1".
+        max_tokens = max(1, max_tokens)
         
         kwargs: dict[str, Any] = {
             "model": model,
