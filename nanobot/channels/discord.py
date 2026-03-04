@@ -34,6 +34,23 @@ class DiscordChannel(BaseChannel):
         self._http: httpx.AsyncClient | None = None
         self._bot_user_id: str | None = None
     
+    def split_discord_message(self, text: str, limit: int = 1900):
+        chunks = []
+        
+        while len(text) > limit:
+            # try to split on newline for readability
+            split_idx = text.rfind("\n", 0, limit)
+            if split_idx == -1:
+                split_idx = limit
+            
+            chunks.append(text[:split_idx])
+            text = text[split_idx:].lstrip()
+
+        if text:
+            chunks.append(text)
+
+        return chunks
+    
     def _is_bot_mentioned(self, content: str, mentions: list[dict[str, Any]]) -> bool:
         if not self._bot_user_id:
             return False
@@ -105,31 +122,37 @@ class DiscordChannel(BaseChannel):
             return
 
         url = f"{DISCORD_API_BASE}/channels/{msg.chat_id}/messages"
-        payload: dict[str, Any] = {"content": msg.content}
 
-        if msg.reply_to:
-            payload["message_reference"] = {"message_id": msg.reply_to}
-            payload["allowed_mentions"] = {"replied_user": False}
-
-        headers = {"Authorization": f"Bot {self.config.token}"}
+        msg_chunks = self.split_discord_message(msg.content)
 
         try:
-            for attempt in range(3):
-                try:
-                    response = await self._http.post(url, headers=headers, json=payload)
-                    if response.status_code == 429:
-                        data = response.json()
-                        retry_after = float(data.get("retry_after", 1.0))
-                        logger.warning(f"Discord rate limited, retrying in {retry_after}s")
-                        await asyncio.sleep(retry_after)
-                        continue
-                    response.raise_for_status()
-                    return
-                except Exception as e:
-                    if attempt == 2:
-                        logger.error(f"Error sending Discord message: {e}")
-                    else:
-                        await asyncio.sleep(1)
+
+            for msg_chunk in msg_chunks:
+                payload: dict[str, Any] = {"content": msg_chunk}
+
+                if msg.reply_to:
+                    payload["message_reference"] = {"message_id": msg.reply_to}
+                    payload["allowed_mentions"] = {"replied_user": False}
+
+                headers = {"Authorization": f"Bot {self.config.token}"}
+                for attempt in range(3):
+                    try:
+                        response = await self._http.post(url, headers=headers, json=payload)
+                        if response.status_code == 429:
+                            data = response.json()
+                            retry_after = float(data.get("retry_after", 1.0))
+                            logger.warning(f"Discord rate limited, retrying in {retry_after}s")
+                            await asyncio.sleep(retry_after)
+                            continue
+                        response.raise_for_status()
+                        if response.status_code == 200:
+                            break
+                       # return
+                    except Exception as e:
+                        if attempt == 2:
+                            logger.error(f"Error sending Discord message: {e}")
+                        else:
+                            await asyncio.sleep(1)
         finally:
             await self._stop_typing(msg.chat_id)
 

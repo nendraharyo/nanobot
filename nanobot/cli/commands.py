@@ -372,7 +372,7 @@ def gateway(
         bus=bus,
         provider=provider,
         workspace=config.workspace_path,
-        model=config.agents.defaults.model,
+        model=model,
         temperature=config.agents.defaults.temperature,
         max_tokens=config.agents.defaults.max_tokens,
         max_iterations=config.agents.defaults.max_tool_iterations,
@@ -513,8 +513,8 @@ def agent(
     agent_loop = AgentLoop(
         bus=bus,
         provider=provider,
+        model=model,
         workspace=config.workspace_path,
-        model=config.agents.defaults.model,
         temperature=config.agents.defaults.temperature,
         max_tokens=config.agents.defaults.max_tokens,
         max_iterations=config.agents.defaults.max_tool_iterations,
